@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 기억 복원 (홉필드 네트워크)</title>
+    <style>
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            text-align: center;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 { color: #2c3e50; margin-bottom: 5px; font-size: 24px; }
+        p.subtitle { color: #7f8c8d; font-size: 14px; margin-bottom: 20px; }
+        
+        /* 4x4 격자 디자인 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 70px);
+            gap: 8px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 70px;
+            height: 70px;
+            background-color: white;
+            border: 2px solid #bdc3c7;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .cell.active {
+            background-color: #2c3e50;
+            border-color: #2c3e50;
+            transform: scale(1.05);
+        }
+
+        /* 컨트롤 버튼 디자인 */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        button {
+            padding: 14px;
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button:active { transform: translateY(2px); }
+        .btn-draw { background-color: #8e44ad; }
+        .btn-save { background-color: #27ae60; }
+        .btn-noise { background-color: #e74c3c; }
+        .btn-restore { background-color: #2980b9; }
+        .btn-clear { background-color: #95a5a6; }
+        
+        #message {
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #d35400;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 10px;
+        }
+
+        /* 학생 결정 모달창 디자인 */
+        .modal {
+            display: none; 
+            position: fixed; z-index: 100;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background-color: white; padding: 25px;
+            border-radius: 16px; max-width: 280px; text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .modal-content h3 { margin-top: 0; color: #2c3e50; }
+        .modal-content p { font-size: 15px; color: #555; margin-bottom: 20px; line-height: 1.5; }
+        
+        .modal-buttons {
+            display: flex; gap: 10px; flex-direction: column;
+        }
+        .btn-flip { background-color: #e67e22; }
+        .btn-keep { background-color: #34495e; }
+        .btn-cancel { background-color: #ecf0f1; color: #333; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>🧠 AI 기억 복원 시뮬레이터</h2>
+    <p class="subtitle">학생 직접 판단 모드 (에너지 최소화)</p>
+
+    <div id="message">빈 칸을 터치하여 직접 그림을 그리거나<br>아래 [하트 완성] 버튼을 누르세요.</div>
+
+    <div class="grid-container" id="grid">
+        <!-- 자바스크립트로 16개 격자가 생성됨 -->
+    </div>
+
+    <div class="controls">
+        <button class="btn-draw" onclick="drawHeart()">❤️ 1. 하트 모양으로 그리기</button>
+        <button class="btn-save" onclick="saveMemory()">💾 2. 뉴런 연결망(가중치) 기억하기</button>
+        <button class="btn-noise" onclick="addNoise()">🌪️ 3. 노이즈 발생 (학생 수동 복원 모드)</button>
+        <button class="btn-restore" onclick="restoreMemory()">✨ 전체 자동 복원 (에너지 최소화)</button>
+        <button class="btn-clear" onclick="clearGrid()">초기화</button>
+    </div>
+
+    <!-- 학생 결정 팝업창 -->
+    <div id="decision-modal" class="modal">
+        <div class="modal-content">
+            <h3>학생 직접 평가 🔍</h3>
+            <p>이 칸 주변의 이웃(네트워크)들과의 상호작용 규칙을 고려할 때, 이 칸의 색을 어떻게 해야 가장 안정적일까요?</p>
+            <div class="modal-buttons">
+                <button class="btn-flip" onclick="submitDecision(true)">🔄 색을 뒤집는다</button>
+                <button class="btn-keep" onclick="submitDecision(false)">⏸️ 그대로 유지한다</button>
+            </div>
+            <button class="btn-cancel" onclick="closeModal()">취소</button>
+        </div>
+    </div>
+
+    <script>
+        const SIZE = 16;
+        let state = Array(SIZE).fill(-1); // -1: 흰색, 1: 검은색
+        let weights = Array(SIZE).fill(0).map(() => Array(SIZE).fill(0));
+        let isMemorySaved = false;
+        let isManualMode = false; // 수동 복원(학생 평가) 모드 여부
+        let targetCell = -1;      // 학생이 터치한 칸 번호
+
+        const grid = document.getElementById('grid');
+        const msg = document.getElementById('message');
+
+        // 격자 생성
+        for (let i = 0; i < SIZE; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = 'cell-' + i;
+            cell.onclick = () => handleCellClick(i);
+            grid.appendChild(cell);
+        }
+
+        // 칸 터치 처리 로직
+        function handleCellClick(i) {
+            if (isManualMode) {
+                // 노이즈 발생 후: 모달창 띄워 학생이 직접 결정하게 함
+                targetCell = i;
+                document.getElementById('decision-modal').style.display = 'flex';
+            } else {
+                // 그리기 모드: 단순 색 반전
+                state[i] *= -1;
+                updateUI();
+                msg.innerText = "칸이 변경되었습니다.";
+            }
+        }
+
+        // 학생의 결정(뒤집기/유지) 채점 로직
+        function submitDecision(studentChoseFlip) {
+            // 1. 선택한 칸에 가해지는 주변 이웃들의 가중치 총합(에너지) 계산
+            let sum = 0;
+            for (let j = 0; j < SIZE; j++) {
+                sum += weights[targetCell][j] * state[j];
+            }
+            
+            // 2. 물리 법칙(Hopfield 규칙)에 따른 정답 상태 산출
+            let expectedState = sum >= 0 ? 1 : -1;
+            let correctActionIsFlip = (state[targetCell] !== expectedState);
+
+            // 3. 학생의 선택과 정답 비교
+            if (studentChoseFlip === correctActionIsFlip) {
+                // 정답일 경우
+                if (studentChoseFlip) {
+                    state[targetCell] *= -1; // 올바르게 뒤집기 실행
+                    alert("✅ 정답입니다! 이웃과의 물리적 상호작용 규칙에 따라 색을 뒤집어 에너지가 안정화되었습니다.");
+                } else {
+                    alert("✅ 정답입니다! 이 칸은 이미 얽혀있는 이웃들과 가장 안정적인 상태이므로 유지하는 것이 맞습니다.");
+                }
+                updateUI();
+            } else {
+                // 오답일 경우
+                if (studentChoseFlip) {
+                    alert("❌ 틀렸습니다. 이 칸은 이미 이웃들과 가장 안정적인 상태입니다. 억지로 뒤집으면 전체 에너지가 높아집니다.");
+                } else {
+                    alert("❌ 틀렸습니다. 주변 이웃들의 강한 영향력 때문에 이 칸은 색이 반전되어야 에너지가 낮아집니다.");
+                }
+            }
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('decision-modal').style.display = 'none';
+        }
+
+        function updateUI() {
+            for (let i = 0; i < SIZE; i++) {
+                let cell = document.getElementById('cell-' + i);
+                if (state[i] === 1) cell.classList.add('active');
+                else cell.classList.remove('active');
+            }
+        }
+
+        function drawHeart() {
+            const heartPattern = [
+                -1,  1,  1, -1,
+                 1,  1,  1,  1,
+                -1,  1,  1, -1,
+                -1, -1, -1, -1
+            ];
+            state = [...heartPattern];
+            updateUI();
+            msg.innerText = "하트 모양이 완성되었습니다.";
+        }
+
+        // 학습 (Hebbian Rule)
+        function saveMemory() {
+            for (let i = 0; i < SIZE; i++) {
+                for (let j = 0; j < SIZE; j++) {
+                    if (i !== j) weights[i][j] = state[i] * state[j];
+                    else weights[i][j] = 0;
+                }
+            }
+            isMemorySaved = true;
+            isManualMode = false;
+            msg.innerText = "✅ 뉴런의 시냅스 연결(가중치)이 저장되었습니다!";
+        }
+
+        // 노이즈 발생
+        function addNoise() {
+            if (!isMemorySaved) {
+                alert("먼저 연결망을 기억(저장)해주세요!");
+                return;
+            }
+            let indices = [];
+            while(indices.length < 3) {
+                let r = Math.floor(Math.random() * SIZE);
+                if(indices.indexOf(r) === -1) indices.push(r);
+            }
+            indices.forEach(idx => { state[idx] *= -1; });
+            updateUI();
+            
+            // 수동 모드(학생 판단 모드) 활성화
+            isManualMode = true;
+            msg.innerHTML = "⚠️ 노이즈 발생!<br>이제 아무 칸이나 터치하여 <b>직접 에너지를 평가</b>해 보세요.";
+        }
+
+        // 전체 자동 복원 (학생이 포기하거나 확인하고 싶을 때)
+        function restoreMemory() {
+            if (!isMemorySaved) return;
+            
+            let newState = [...state];
+            let changed = false;
+
+            for (let i = 0; i < SIZE; i++) {
+                let sum = 0;
+                for (let j = 0; j < SIZE; j++) {
+                    sum += weights[i][j] * state[j];
+                }
+                let newValue = sum >= 0 ? 1 : -1;
+                if (newState[i] !== newValue) changed = true;
+                newState[i] = newValue;
+            }
+
+            state = [...newState];
+            updateUI();
+            
+            if (changed) {
+                msg.innerText = "✨ AI가 전체 연결망을 계산하여 원본 기억으로 복원했습니다!";
+            } else {
+                msg.innerText = "🌟 이미 모든 칸이 가장 안정적인(에너지 최소화) 상태입니다.";
+            }
+            isManualMode = false; // 자동 복원 후에는 다시 일반 모드로
+        }
+
+        // 초기화
+        function clearGrid() {
+            state = Array(SIZE).fill(-1);
+            isMemorySaved = false;
+            isManualMode = false;
+            updateUI();
+            msg.innerText = "초기화되었습니다. 자유롭게 그림을 그려보세요.";
+        }
+    </script>
+</body>
+</html>
