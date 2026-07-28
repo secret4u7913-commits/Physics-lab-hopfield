@@ -10,28 +10,36 @@
             text-align: center;
             background-color: #f4f6f9;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
         }
-        h2 { color: #2c3e50; margin-bottom: 5px; font-size: 24px; }
-        p.subtitle { color: #7f8c8d; font-size: 14px; margin-bottom: 20px; }
+        h2 { color: #2c3e50; margin-bottom: 5px; font-size: 22px; }
+        p.subtitle { color: #7f8c8d; font-size: 13px; margin-bottom: 15px; }
         
-        /* 4x4 격자 디자인 */
+        /* 상단 설정 패널 */
+        .settings {
+            background: white; padding: 10px; border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: inline-block;
+            margin-bottom: 15px;
+        }
+        .settings select {
+            font-size: 15px; padding: 5px 10px; border-radius: 5px;
+            border: 1px solid #ccc; font-weight: bold;
+        }
+
+        /* 동적 격자 디자인 */
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(4, 70px);
-            gap: 8px;
+            gap: 6px;
             justify-content: center;
-            margin: 20px auto;
+            margin: 10px auto 20px;
         }
         .cell {
-            width: 70px;
-            height: 70px;
             background-color: white;
             border: 2px solid #bdc3c7;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.1s ease-in-out;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.1);
         }
         .cell.active {
             background-color: #2c3e50;
@@ -41,63 +49,51 @@
 
         /* 컨트롤 버튼 디자인 */
         .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-width: 320px;
-            margin: 0 auto;
+            display: flex; flex-direction: column; gap: 10px;
+            max-width: 320px; margin: 0 auto;
         }
+        .row-buttons { display: flex; gap: 10px; }
+        .row-buttons button { flex: 1; font-size: 13px; padding: 12px 5px;}
+        
         button {
-            padding: 14px;
-            font-size: 15px;
-            font-weight: bold;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
+            padding: 12px; font-size: 14px; font-weight: bold;
+            color: white; border: none; border-radius: 8px;
+            cursor: pointer; transition: 0.2s;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         button:active { transform: translateY(2px); }
         .btn-draw { background-color: #8e44ad; }
+        .btn-random { background-color: #f39c12; }
         .btn-save { background-color: #27ae60; }
         .btn-noise { background-color: #e74c3c; }
         .btn-restore { background-color: #2980b9; }
         .btn-clear { background-color: #95a5a6; }
         
         #message {
-            margin-bottom: 20px;
-            font-weight: bold;
-            color: #d35400;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 10px;
+            font-weight: bold; color: #d35400; height: 35px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 10px; margin-bottom: 10px; font-size: 14px;
         }
 
-        /* 학생 결정 모달창 디자인 */
+        /* 학생 판단 모달창 */
         .modal {
-            display: none; 
-            position: fixed; z-index: 100;
+            display: none; position: fixed; z-index: 100;
             left: 0; top: 0; width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.5);
             align-items: center; justify-content: center;
         }
         .modal-content {
-            background-color: white; padding: 25px;
+            background-color: white; padding: 20px;
             border-radius: 16px; max-width: 280px; text-align: center;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
-        .modal-content h3 { margin-top: 0; color: #2c3e50; }
-        .modal-content p { font-size: 15px; color: #555; margin-bottom: 20px; line-height: 1.5; }
+        .modal-content h3 { margin-top: 0; color: #2c3e50; font-size: 18px; }
+        .modal-content p { font-size: 14px; color: #555; margin-bottom: 15px; }
         
-        .modal-buttons {
-            display: flex; gap: 10px; flex-direction: column;
-        }
+        .modal-buttons { display: flex; gap: 10px; flex-direction: column; }
         .btn-flip { background-color: #e67e22; }
         .btn-keep { background-color: #34495e; }
-        .btn-cancel { background-color: #ecf0f1; color: #333; margin-top: 10px; }
+        .btn-cancel { background-color: #ecf0f1; color: #333; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -105,27 +101,38 @@
     <h2>🧠 AI 기억 복원 시뮬레이터</h2>
     <p class="subtitle">학생 직접 판단 모드 (에너지 최소화)</p>
 
-    <div id="message">빈 칸을 터치하여 직접 그림을 그리거나<br>아래 [하트 완성] 버튼을 누르세요.</div>
-
-    <div class="grid-container" id="grid">
-        <!-- 자바스크립트로 16개 격자가 생성됨 -->
+    <div class="settings">
+        <label for="grid-size">📐 격자 크기: </label>
+        <select id="grid-size" onchange="changeGridSize()">
+            <option value="3">3 x 3 (총 9칸)</option>
+            <option value="4" selected>4 x 4 (총 16칸)</option>
+            <option value="5">5 x 5 (총 25칸)</option>
+            <option value="6">6 x 6 (총 36칸)</option>
+        </select>
     </div>
 
+    <div id="message">칸을 터치하여 그림을 그리거나 자동 버튼을 누르세요.</div>
+
+    <div class="grid-container" id="grid"></div>
+
     <div class="controls">
-        <button class="btn-draw" onclick="drawHeart()">❤️ 1. 하트 모양으로 그리기</button>
-        <button class="btn-save" onclick="saveMemory()">💾 2. 뉴런 연결망(가중치) 기억하기</button>
-        <button class="btn-noise" onclick="addNoise()">🌪️ 3. 노이즈 발생 (학생 수동 복원 모드)</button>
+        <div class="row-buttons">
+            <button class="btn-draw" onclick="drawHeart()">❤️ 하트(4x4 전용)</button>
+            <button class="btn-random" onclick="drawRandom()">🎲 랜덤 패턴 생성</button>
+        </div>
+        <button class="btn-save" onclick="saveMemory()">💾 1. 뉴런 연결망(가중치) 기억하기</button>
+        <button class="btn-noise" onclick="addNoise()">🌪️ 2. 노이즈 발생 (학생 수동 복원 모드)</button>
         <button class="btn-restore" onclick="restoreMemory()">✨ 전체 자동 복원 (에너지 최소화)</button>
         <button class="btn-clear" onclick="clearGrid()">초기화</button>
     </div>
 
-    <!-- 학생 결정 팝업창 -->
+    <!-- 모달창 -->
     <div id="decision-modal" class="modal">
         <div class="modal-content">
             <h3>학생 직접 평가 🔍</h3>
-            <p>이 칸 주변의 이웃(네트워크)들과의 상호작용 규칙을 고려할 때, 이 칸의 색을 어떻게 해야 가장 안정적일까요?</p>
+            <p>네트워크 상호작용을 고려할 때, 이 칸의 색을 어떻게 해야 가장 안정적(에너지 최소)일까요?</p>
             <div class="modal-buttons">
-                <button class="btn-flip" onclick="submitDecision(true)">🔄 색을 뒤집는다</button>
+                <button class="btn-flip" onclick="submitDecision(true)">🔄 반대로 뒤집는다</button>
                 <button class="btn-keep" onclick="submitDecision(false)">⏸️ 그대로 유지한다</button>
             </div>
             <button class="btn-cancel" onclick="closeModal()">취소</button>
@@ -133,67 +140,80 @@
     </div>
 
     <script>
-        const SIZE = 16;
-        let state = Array(SIZE).fill(-1); // -1: 흰색, 1: 검은색
-        let weights = Array(SIZE).fill(0).map(() => Array(SIZE).fill(0));
+        let N = 4; // 기본 4x4
+        let SIZE = 16;
+        let state = []; 
+        let weights = [];
         let isMemorySaved = false;
-        let isManualMode = false; // 수동 복원(학생 평가) 모드 여부
-        let targetCell = -1;      // 학생이 터치한 칸 번호
+        let isManualMode = false;
+        let targetCell = -1;
 
         const grid = document.getElementById('grid');
         const msg = document.getElementById('message');
 
-        // 격자 생성
-        for (let i = 0; i < SIZE; i++) {
-            let cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.id = 'cell-' + i;
-            cell.onclick = () => handleCellClick(i);
-            grid.appendChild(cell);
+        // 격자 초기화 및 화면 그리기
+        function initGrid() {
+            grid.innerHTML = '';
+            
+            // 모바일 화면을 고려하여 격자 크기에 따라 셀 크기 자동 조절
+            let cellSize = N <= 4 ? 60 : (N === 5 ? 50 : 45);
+            grid.style.gridTemplateColumns = `repeat(${N}, ${cellSize}px)`;
+            grid.style.gridAutoRows = `${cellSize}px`;
+
+            state = Array(SIZE).fill(-1);
+            weights = Array(SIZE).fill(0).map(() => Array(SIZE).fill(0));
+            isMemorySaved = false;
+            isManualMode = false;
+            msg.innerText = "새로운 격자가 생성되었습니다. 그림을 그려보세요.";
+
+            for (let i = 0; i < SIZE; i++) {
+                let cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.id = 'cell-' + i;
+                cell.onclick = () => handleCellClick(i);
+                grid.appendChild(cell);
+            }
         }
 
-        // 칸 터치 처리 로직
+        function changeGridSize() {
+            N = parseInt(document.getElementById('grid-size').value);
+            SIZE = N * N;
+            initGrid();
+        }
+
         function handleCellClick(i) {
             if (isManualMode) {
-                // 노이즈 발생 후: 모달창 띄워 학생이 직접 결정하게 함
                 targetCell = i;
                 document.getElementById('decision-modal').style.display = 'flex';
             } else {
-                // 그리기 모드: 단순 색 반전
                 state[i] *= -1;
                 updateUI();
                 msg.innerText = "칸이 변경되었습니다.";
             }
         }
 
-        // 학생의 결정(뒤집기/유지) 채점 로직
         function submitDecision(studentChoseFlip) {
-            // 1. 선택한 칸에 가해지는 주변 이웃들의 가중치 총합(에너지) 계산
             let sum = 0;
             for (let j = 0; j < SIZE; j++) {
                 sum += weights[targetCell][j] * state[j];
             }
             
-            // 2. 물리 법칙(Hopfield 규칙)에 따른 정답 상태 산출
             let expectedState = sum >= 0 ? 1 : -1;
             let correctActionIsFlip = (state[targetCell] !== expectedState);
 
-            // 3. 학생의 선택과 정답 비교
             if (studentChoseFlip === correctActionIsFlip) {
-                // 정답일 경우
                 if (studentChoseFlip) {
-                    state[targetCell] *= -1; // 올바르게 뒤집기 실행
-                    alert("✅ 정답입니다! 이웃과의 물리적 상호작용 규칙에 따라 색을 뒤집어 에너지가 안정화되었습니다.");
+                    state[targetCell] *= -1;
+                    alert("✅ 정답입니다! 색을 뒤집어 에너지가 안정화되었습니다.");
                 } else {
-                    alert("✅ 정답입니다! 이 칸은 이미 얽혀있는 이웃들과 가장 안정적인 상태이므로 유지하는 것이 맞습니다.");
+                    alert("✅ 정답입니다! 이 칸은 이미 주변과 가장 안정적인 상태입니다.");
                 }
                 updateUI();
             } else {
-                // 오답일 경우
                 if (studentChoseFlip) {
-                    alert("❌ 틀렸습니다. 이 칸은 이미 이웃들과 가장 안정적인 상태입니다. 억지로 뒤집으면 전체 에너지가 높아집니다.");
+                    alert("❌ 틀렸습니다. 억지로 뒤집으면 연결망 전체 에너지가 높아집니다.");
                 } else {
-                    alert("❌ 틀렸습니다. 주변 이웃들의 강한 영향력 때문에 이 칸은 색이 반전되어야 에너지가 낮아집니다.");
+                    alert("❌ 틀렸습니다. 주변 이웃들의 강한 인력/척력 때문에 뒤집혀야 합니다.");
                 }
             }
             closeModal();
@@ -211,19 +231,27 @@
             }
         }
 
+        // 4x4 전용 하트 그리기
         function drawHeart() {
-            const heartPattern = [
-                -1,  1,  1, -1,
-                 1,  1,  1,  1,
-                -1,  1,  1, -1,
-                -1, -1, -1, -1
-            ];
+            if (N !== 4) {
+                alert("하트 모양 자동 완성은 4x4 격자에서만 사용할 수 있습니다. 랜덤 패턴을 사용해보세요!");
+                return;
+            }
+            const heartPattern = [-1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1, -1, -1, -1, -1, -1];
             state = [...heartPattern];
             updateUI();
             msg.innerText = "하트 모양이 완성되었습니다.";
         }
 
-        // 학습 (Hebbian Rule)
+        // 랜덤 패턴 생성
+        function drawRandom() {
+            for (let i = 0; i < SIZE; i++) {
+                state[i] = Math.random() > 0.5 ? 1 : -1;
+            }
+            updateUI();
+            msg.innerText = "무작위 패턴이 생성되었습니다.";
+        }
+
         function saveMemory() {
             for (let i = 0; i < SIZE; i++) {
                 for (let j = 0; j < SIZE; j++) {
@@ -233,29 +261,28 @@
             }
             isMemorySaved = true;
             isManualMode = false;
-            msg.innerText = "✅ 뉴런의 시냅스 연결(가중치)이 저장되었습니다!";
+            msg.innerText = "✅ 가중치가 계산되어 기억이 저장되었습니다!";
         }
 
-        // 노이즈 발생
         function addNoise() {
             if (!isMemorySaved) {
                 alert("먼저 연결망을 기억(저장)해주세요!");
                 return;
             }
+            // 격자 크기에 비례하여 노이즈 개수 조절 (3x3=2개, 4x4=3개, 5x5=5개, 6x6=7개)
+            let noiseCount = Math.floor(SIZE * 0.2); 
             let indices = [];
-            while(indices.length < 3) {
+            while(indices.length < noiseCount) {
                 let r = Math.floor(Math.random() * SIZE);
                 if(indices.indexOf(r) === -1) indices.push(r);
             }
             indices.forEach(idx => { state[idx] *= -1; });
             updateUI();
             
-            // 수동 모드(학생 판단 모드) 활성화
             isManualMode = true;
-            msg.innerHTML = "⚠️ 노이즈 발생!<br>이제 아무 칸이나 터치하여 <b>직접 에너지를 평가</b>해 보세요.";
+            msg.innerHTML = `⚠️ ${noiseCount}칸의 노이즈 발생!<br>터치하여 <b>직접 복원(에너지 평가)</b>해 보세요.`;
         }
 
-        // 전체 자동 복원 (학생이 포기하거나 확인하고 싶을 때)
         function restoreMemory() {
             if (!isMemorySaved) return;
             
@@ -276,21 +303,19 @@
             updateUI();
             
             if (changed) {
-                msg.innerText = "✨ AI가 전체 연결망을 계산하여 원본 기억으로 복원했습니다!";
+                msg.innerText = "✨ 물리학적 상호작용으로 원본 기억이 자동 복원되었습니다!";
             } else {
-                msg.innerText = "🌟 이미 모든 칸이 가장 안정적인(에너지 최소화) 상태입니다.";
+                msg.innerText = "🌟 이미 모든 칸이 최소 에너지 상태입니다.";
             }
-            isManualMode = false; // 자동 복원 후에는 다시 일반 모드로
+            isManualMode = false;
         }
 
-        // 초기화
         function clearGrid() {
-            state = Array(SIZE).fill(-1);
-            isMemorySaved = false;
-            isManualMode = false;
-            updateUI();
-            msg.innerText = "초기화되었습니다. 자유롭게 그림을 그려보세요.";
+            initGrid();
         }
+
+        // 시작 시 초기화
+        window.onload = initGrid;
     </script>
 </body>
 </html>
